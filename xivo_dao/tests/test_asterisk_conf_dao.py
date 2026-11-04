@@ -14,9 +14,11 @@ from hamcrest import (
     empty,
     equal_to,
     has_entries,
+    has_item,
     has_items,
     has_properties,
     not_,
+    starts_with,
 )
 from wazo_test_helpers.hamcrest.uuid_ import uuid_
 
@@ -1907,6 +1909,26 @@ class TestFindSipUserSettings(BaseFindSIPSettings, PickupHelperMixin):
             ),
         )
 
+    def test_that_the_trunk_id_var_is_not_set_on_a_line(self):
+        user = self.add_user()
+        endpoint = self.add_endpoint_sip(template=False)
+        line = self.add_line(endpoint_sip_uuid=endpoint.uuid)
+        self.add_user_line(user_id=user.id, line_id=line.id)
+
+        result = asterisk_conf_dao.find_sip_user_settings()
+        assert_that(
+            result,
+            contains_exactly(
+                has_entries(
+                    endpoint_section_options=not_(
+                        has_item(
+                            contains_exactly('set_var', starts_with('WAZO_TRUNK_ID='))
+                        ),
+                    ),
+                )
+            ),
+        )
+
     def test_that_the_simultcalls_var_is_set(self):
         user = self.add_user()
         endpoint = self.add_endpoint_sip(template=False)
@@ -2239,6 +2261,22 @@ class TestFindSipTrunkSettings(BaseFindSIPSettings):
             ),
         )
 
+    def test_that_the_trunk_id_var_is_set(self):
+        endpoint = self.add_endpoint_sip(template=False)
+        trunk = self.add_trunk(endpoint_sip_uuid=endpoint.uuid)
+
+        result = asterisk_conf_dao.find_sip_trunk_settings()
+        assert_that(
+            result,
+            contains_exactly(
+                has_entries(
+                    endpoint_section_options=has_items(
+                        contains_exactly('set_var', f'WAZO_TRUNK_ID={trunk.id}'),
+                    ),
+                )
+            ),
+        )
+
     def test_that_the_trunk_context_is_used(self):
         endpoint = self.add_endpoint_sip(template=False)
         self.add_trunk(endpoint_sip_uuid=endpoint.uuid, context=self.context.name)
@@ -2510,7 +2548,7 @@ class TestFindSipTrunkSettings(BaseFindSIPSettings):
                 ['webrtc', 'true'],
             ],
         )
-        self.add_trunk(endpoint_sip_uuid=endpoint.uuid)
+        trunk = self.add_trunk(endpoint_sip_uuid=endpoint.uuid)
 
         result = asterisk_conf_dao.find_sip_trunk_settings()
         assert_that(
@@ -2525,6 +2563,7 @@ class TestFindSipTrunkSettings(BaseFindSIPSettings):
                             'set_var', f'__WAZO_TENANT_UUID={endpoint.tenant_uuid}'
                         ),
                         contains_exactly('set_var', 'WAZO_PAI_FORMAT='),
+                        contains_exactly('set_var', f'WAZO_TRUNK_ID={trunk.id}'),
                     )
                 )
             ),
